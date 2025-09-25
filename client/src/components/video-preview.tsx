@@ -75,6 +75,9 @@ export default function VideoPreview({ generationId }: VideoPreviewProps) {
 
   // Generated video state
   if (generation?.status === "completed" && generation.videoUrl) {
+    const isHtmlVideo = generation.videoUrl.endsWith('.html');
+    const isMp4Video = generation.videoUrl.endsWith('.mp4');
+    
     return (
       <Card className="glass-morphism rounded-2xl p-8">
         <h3 className="text-2xl font-bold mb-6 flex items-center">
@@ -83,22 +86,49 @@ export default function VideoPreview({ generationId }: VideoPreviewProps) {
         </h3>
         
         <div className="relative aspect-square bg-black rounded-xl overflow-hidden" data-testid="video-player">
-          <video
-            className="w-full h-full object-cover"
-            controls
-            preload="metadata"
-            onPlay={() => setIsPlaying(true)}
-            onPause={() => setIsPlaying(false)}
-          >
-            <source src={toAbsoluteUrl(generation.videoUrl)} type="video/mp4" />
-            Your browser does not support the video tag.
-          </video>
+          {isMp4Video ? (
+            // Standard MP4 video player
+            <video
+              className="w-full h-full object-cover"
+              controls
+              preload="metadata"
+              onPlay={() => setIsPlaying(true)}
+              onPause={() => setIsPlaying(false)}
+            >
+              <source src={toAbsoluteUrl(generation.videoUrl)} type="video/mp4" />
+              Your browser does not support the video tag.
+            </video>
+          ) : isHtmlVideo ? (
+            // HTML iframe for image sequence player
+            <iframe
+              src={toAbsoluteUrl(generation.videoUrl)}
+              className="w-full h-full border-0"
+              title="AI Generated Video"
+              allowFullScreen
+            />
+          ) : (
+            // Fallback for other formats
+            <div className="w-full h-full flex items-center justify-center text-white">
+              <div className="text-center">
+                <i className="fas fa-play-circle text-4xl mb-4"></i>
+                <p>Video ready for viewing</p>
+                <Button
+                  onClick={() => window.open(toAbsoluteUrl(generation.videoUrl), '_blank')}
+                  className="mt-4 gradient-button text-white"
+                >
+                  Open Video
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Video Actions */}
         <div className="flex items-center justify-between mt-6 pt-6 border-t border-border">
           <div className="text-sm text-muted-foreground" data-testid="text-video-info">
             Generated • {generation.quality}x{generation.quality} • {generation.duration} seconds
+            {isHtmlVideo && " • Image Sequence"}
+            {isMp4Video && " • Video File"}
           </div>
           <div className="flex items-center space-x-3">
             <Button
@@ -110,14 +140,25 @@ export default function VideoPreview({ generationId }: VideoPreviewProps) {
               <i className="fas fa-redo"></i>
               <span>Regenerate</span>
             </Button>
-            <Button
-              onClick={downloadVideo}
-              className="gradient-button text-white flex items-center space-x-2"
-              data-testid="button-download"
-            >
-              <i className="fas fa-download"></i>
-              <span>Download</span>
-            </Button>
+            {isMp4Video ? (
+              <Button
+                onClick={downloadVideo}
+                className="gradient-button text-white flex items-center space-x-2"
+                data-testid="button-download"
+              >
+                <i className="fas fa-download"></i>
+                <span>Download</span>
+              </Button>
+            ) : (
+              <Button
+                onClick={() => window.open(toAbsoluteUrl(generation.videoUrl), '_blank')}
+                className="gradient-button text-white flex items-center space-x-2"
+                data-testid="button-view"
+              >
+                <i className="fas fa-external-link-alt"></i>
+                <span>View Full</span>
+              </Button>
+            )}
           </div>
         </div>
       </Card>

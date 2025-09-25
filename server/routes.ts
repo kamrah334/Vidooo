@@ -126,14 +126,139 @@ async function generateVideoAsync(generationId: string) {
 
 async function generateImageSequence(generationId: string, generation: any, token: string) {
   try {
-    // Generate multiple frames using FLUX text-to-image (which IS available)
-    const numFrames = Math.min(generation.duration * 2, 8); // Generate fewer frames for demo
+    console.log(`Starting Stable Video Diffusion generation for: ${generation.script}`);
+    
+    // Use Stable Video Diffusion API similar to FastAPI backend
+    const imageUrl = generation.characterImageUrl;
+    const imagePath = imageUrl.replace('/uploads/', 'uploads/');
+    
+    if (!fs.existsSync(imagePath)) {
+      throw new Error(`Character image not found: ${imagePath}`);
+    }
+
+    // Read the character image once
+    const imageData = fs.readFileSync(imagePath);
+    
+    const HF_API_URL = "https://api-inference.huggingface.co/models/stabilityai/stable-video-diffusion-img2vid-xt";
+    
+    // Try Stable Video Diffusion API with retry logic
+    const maxRetries = 3;
+    let retryDelay = 20;
+    
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        console.log(`Attempting SVD API call (attempt ${attempt + 1}/${maxRetries})`);
+        
+        // Create fresh form data for each attempt (critical for retries)
+        const formData = new FormData();
+        const imageBlob = new Blob([imageData], { type: 'image/jpeg' });
+        formData.append('inputs', imageBlob, 'character.jpg');
+        formData.append('parameters', JSON.stringify({
+          num_frames: Math.min(generation.duration * 8, 25), // ~8 fps, max 25 frames
+        }));
+        
+        const response = await fetch(HF_API_URL, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'video/mp4',
+          },
+          body: formData,
+        });
+
+        if (response.status === 503) {
+          // Model is loading
+          let waitTime = retryDelay;
+          try {
+            const errorData = await response.json();
+            waitTime = errorData.estimated_time || retryDelay;
+          } catch {}
+          
+          console.log(`Model loading, waiting ${waitTime} seconds...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime * 1000));
+          
+          if (attempt < maxRetries - 1) {
+            retryDelay *= 1.5; // Exponential backoff
+            continue;
+          }
+        }
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.log(`SVD API error ${response.status}: ${errorText}`);
+          
+          // If SVD fails, fall back to creating a video-like sequence with image generation
+          if (attempt === maxRetries - 1) {
+            console.log('SVD API failed, falling back to image sequence method...');
+            return await generateFallbackImageSequence(generationId, generation, token);
+          }
+          continue;
+        }
+
+        // Check if we got video content
+        const contentType = response.headers.get('content-type') || '';
+        const contentLength = Number(response.headers.get('content-length') || '0');
+        
+        if (!contentType.startsWith('video/') && !contentType.startsWith('application/octet-stream')) {
+          console.log(`Unexpected content type: ${contentType}, length: ${contentLength}`);
+          if (attempt === maxRetries - 1) {
+            return await generateFallbackImageSequence(generationId, generation, token);
+          }
+          continue;
+        }
+
+        // Save the video file
+        const videoBuffer = Buffer.from(await response.arrayBuffer());
+        
+        if (videoBuffer.length < 1000) {
+          console.log(`Video too small (${videoBuffer.length} bytes), trying fallback...`);
+          if (attempt === maxRetries - 1) {
+            return await generateFallbackImageSequence(generationId, generation, token);
+          }
+          continue;
+        }
+
+        const videoPath = path.join(process.cwd(), 'uploads', `video_${generationId}.mp4`);
+        fs.writeFileSync(videoPath, videoBuffer);
+        
+        console.log(`SVD video generated successfully: ${videoBuffer.length} bytes`);
+        
+        // Update generation with completed video
+        await storage.updateVideoGeneration(generationId, {
+          status: "completed",
+          videoUrl: `/uploads/video_${generationId}.mp4`,
+        });
+        
+        return;
+        
+      } catch (error) {
+        console.log(`SVD attempt ${attempt + 1} failed:`, error);
+        if (attempt === maxRetries - 1) {
+          // Final fallback to image sequence
+          return await generateFallbackImageSequence(generationId, generation, token);
+        }
+        await new Promise(resolve => setTimeout(resolve, retryDelay * 1000));
+        retryDelay *= 1.5;
+      }
+    }
+    
+  } catch (error) {
+    console.error('Video generation failed:', error);
+    throw error;
+  }
+}
+
+async function generateFallbackImageSequence(generationId: string, generation: any, token: string) {
+  console.log('Using fallback image sequence generation...');
+  
+  try {
+    // Generate multiple frames using FLUX text-to-image as fallback
+    const numFrames = Math.min(generation.duration * 2, 8);
     const frames: Buffer[] = [];
     
     console.log(`Generating ${numFrames} frames for video simulation...`);
     
     for (let i = 0; i < numFrames; i++) {
-      // Create slightly varied prompts for each frame to simulate motion
       const framePrompt = createFramePrompt(generation.script, i, numFrames);
       
       console.log(`Generating frame ${i + 1}/${numFrames}: ${framePrompt}`);
@@ -159,14 +284,13 @@ async function generateImageSequence(generationId: string, generation: any, toke
       );
 
       if (!response.ok) {
-        // Handle model loading or temporary errors
         if (response.status === 503) {
           console.log(`Model loading for frame ${i + 1}, waiting...`);
           await new Promise(resolve => setTimeout(resolve, 10000));
-          // Skip this frame and continue
           continue;
         }
-        throw new Error(`Frame ${i + 1} generation failed: ${response.status}`);
+        console.log(`Frame ${i + 1} generation failed: ${response.status}`);
+        continue;
       }
 
       const imageBlob = await response.blob();
@@ -174,7 +298,7 @@ async function generateImageSequence(generationId: string, generation: any, toke
         frames.push(Buffer.from(await imageBlob.arrayBuffer()));
       }
 
-      // Small delay between frames to avoid rate limiting
+      // Small delay between frames
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
 
@@ -182,35 +306,31 @@ async function generateImageSequence(generationId: string, generation: any, toke
       throw new Error('No frames were generated successfully');
     }
 
-    console.log(`Generated ${frames.length} frames, creating video...`);
+    console.log(`Generated ${frames.length} frames, creating animated sequence...`);
     
-    // Create a simple "video" by saving the frames as individual images
-    // In a real implementation, you'd combine these into an actual video file
+    // Save frames and create HTML player
     const videoDir = path.join(process.cwd(), 'uploads', `video_${generationId}`);
     if (!fs.existsSync(videoDir)) {
       fs.mkdirSync(videoDir, { recursive: true });
     }
     
-    // Save frames as images
     frames.forEach((frame, index) => {
       fs.writeFileSync(path.join(videoDir, `frame_${index + 1}.jpg`), frame);
     });
     
-    // Create a simple HTML file that shows the frames in sequence (animated slideshow)
     const htmlContent = createVideoHTML(generationId, frames.length);
     const htmlPath = `uploads/video_${generationId}.html`;
     fs.writeFileSync(htmlPath, htmlContent);
     
-    console.log(`Video simulation created: ${frames.length} frames saved`);
+    console.log(`Fallback video simulation created: ${frames.length} frames`);
     
-    // Update generation with completed "video" (actually an animated slideshow)
     await storage.updateVideoGeneration(generationId, {
       status: "completed",
       videoUrl: `/${htmlPath}`,
     });
     
   } catch (error) {
-    console.error('Image sequence generation failed:', error);
+    console.error('Fallback image sequence generation failed:', error);
     throw error;
   }
 }
