@@ -1,0 +1,99 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Generated Video Simulation</title>
+    <style>
+        body { 
+            margin: 0; 
+            background: #000; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh;
+            font-family: Arial, sans-serif;
+        }
+        .video-container { 
+            text-align: center; 
+            max-width: 800px;
+        }
+        .frame { 
+            max-width: 100%; 
+            height: auto; 
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(255,255,255,0.1);
+        }
+        .controls { 
+            margin-top: 20px; 
+            color: white;
+        }
+        .info {
+            color: #888;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        button {
+            background: #6366f1;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            margin: 0 5px;
+            cursor: pointer;
+        }
+        button:hover { background: #4f46e5; }
+    </style>
+</head>
+<body>
+    <div class="video-container">
+        <div class="info">
+            AI Video Simulation - 8 frames generated<br>
+            <small>Note: Due to API limitations, this shows an animated sequence instead of a true video</small>
+        </div>
+        <img id="frame" class="frame" src="/uploads/video_aa4607a4-31b0-44cd-8f1f-87e22c072189/frame_1.jpg" alt="Video frame">
+        <div class="controls">
+            <button onclick="play()">▶️ Play</button>
+            <button onclick="pause()">⏸️ Pause</button>
+            <button onclick="reset()">⏮️ Reset</button>
+            <div style="margin-top: 10px;">
+                Frame: <span id="frameNumber">1</span> / 8
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentFrame = 1;
+        let isPlaying = false;
+        let interval;
+        const totalFrames = 8;
+
+        function updateFrame() {
+            document.getElementById('frame').src = `/uploads/video_aa4607a4-31b0-44cd-8f1f-87e22c072189/frame_${currentFrame}.jpg`;
+            document.getElementById('frameNumber').textContent = currentFrame;
+        }
+
+        function play() {
+            if (isPlaying) return;
+            isPlaying = true;
+            interval = setInterval(() => {
+                currentFrame++;
+                if (currentFrame > totalFrames) {
+                    currentFrame = 1; // Loop
+                }
+                updateFrame();
+            }, 500); // 2 FPS for demo
+        }
+
+        function pause() {
+            isPlaying = false;
+            clearInterval(interval);
+        }
+
+        function reset() {
+            pause();
+            currentFrame = 1;
+            updateFrame();
+        }
+    </script>
+</body>
+</html>
