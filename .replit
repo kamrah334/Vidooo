@@ -6,44 +6,6 @@ expertMode = true
 channel = "stable-25_05"
 
 [workflows]
-runButton = "Project"
-
-[[workflows.workflow]]
-name = "Project"
-mode = "parallel"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "AI Video Generator"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "FastAPI Video Backend"
-
-[[workflows.workflow]]
-name = "AI Video Generator"
-author = "agent"
-
-[workflows.workflow.metadata]
-outputType = "webview"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npm run dev"
-waitForPort = 5000
-
-[[workflows.workflow]]
-name = "FastAPI Video Backend"
-author = "agent"
-
-[workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "cd backend && PORT=8000 python app.py"
-waitForPort = 8000
 
 [[ports]]
 localPort = 5000
