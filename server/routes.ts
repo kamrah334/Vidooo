@@ -119,24 +119,13 @@ async function generateVideoAsync(generationId: string) {
 
     const imageBuffer = fs.readFileSync(imagePath);
     
-    // Create FormData for multipart request
-    const formData = new FormData();
-    const imageBlob = new Blob([imageBuffer], { type: 'image/jpeg' });
-    formData.append('inputs', imageBlob, 'character.jpg');
-    
-    // Add parameters including the script as prompt
-    const parameters: any = {
+    // Prepare parameters for API
+    const parameters = {
       num_frames: Math.min(generation.duration * 8, 25), // ~8 fps, max 25 frames
       motion_bucket_id: 127,
       fps: 8,
       noise_aug_strength: 0.02
     };
-    
-    if (generation.script && generation.script.trim()) {
-      parameters.conditioning_text = generation.script;
-    }
-    
-    formData.append('parameters', JSON.stringify(parameters));
 
     // Retry logic for model loading
     const maxRetries = 3;
@@ -144,6 +133,19 @@ async function generateVideoAsync(generationId: string) {
     
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       console.log(`Attempting video generation (attempt ${attempt + 1}/${maxRetries})`);
+      
+      // Create fresh FormData for each retry (streams are single-use)
+      const formData = new FormData();
+      const imageBlob = new Blob([imageBuffer], { type: 'image/jpeg' });
+      formData.append('image', imageBlob, 'character.jpg');
+      
+      // Add prompt if script exists
+      if (generation.script && generation.script.trim()) {
+        formData.append('prompt', generation.script.trim());
+      }
+      
+      // Add parameters
+      formData.append('parameters', JSON.stringify(parameters));
       
       const response = await fetch(
         "https://api-inference.huggingface.co/models/stabilityai/stable-video-diffusion-img2vid-xt",
