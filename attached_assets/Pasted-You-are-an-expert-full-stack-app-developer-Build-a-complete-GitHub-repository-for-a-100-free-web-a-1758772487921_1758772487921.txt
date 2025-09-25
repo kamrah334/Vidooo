@@ -1,0 +1,120 @@
+You are an expert full-stack app developer. Build a complete GitHub repository for a 100% free web app called AI-Video-Generator. The app should let users create AI videos with consistent characters. Do not use any paid APIs. Only use free, open-source models and hosting.
+
+📂 Project Requirements
+1. Repository Structure
+AI-Video-Generator/
+│
+├── frontend/             # React + TailwindCSS app
+│   ├── src/
+│   ├── package.json
+│   └── README.md
+│
+├── backend/              # FastAPI backend
+│   ├── app.py
+│   ├── requirements.txt
+│   └── README.md
+│
+├── .gitignore
+├── LICENSE
+└── README.md             # Root project guide
+
+2. Frontend (React + TailwindCSS)
+
+Build with React + Vite + TailwindCSS.
+
+Features:
+
+Upload/select a base character image.
+
+Input text prompts or story scripts.
+
+Generate preview frames and final video.
+
+Show generated video in a player.
+
+Buttons: Generate, Re-generate, Download.
+
+Deployable on Vercel Free Tier.
+
+3. Backend (Python FastAPI)
+
+File: backend/app.py.
+
+Expose endpoints:
+
+/generate-video → calls free Hugging Face model API.
+
+/health → returns {status: "ok"}.
+
+Use Stable Video Diffusion (img2vid) or AnimateDiff from Hugging Face Hub (free inference endpoints).
+
+Ensure character consistency by reusing the same uploaded image embedding.
+
+Add requirements.txt with:
+
+fastapi
+uvicorn
+requests
+huggingface_hub
+python-multipart
+
+
+Deployable on Hugging Face Spaces Free Tier.
+
+4. README Files
+
+Root README.md: Explains full project + deployment.
+
+frontend/README.md: Instructions for running React app.
+
+backend/README.md: Instructions for running FastAPI backend.
+
+5. Deployment Guide (must be included in README)
+
+Frontend (Vercel Free Tier)
+
+Push frontend/ folder to GitHub.
+
+Import repo into Vercel
+.
+
+Select framework = Vite.
+
+Deploy.
+
+Backend (Hugging Face Spaces Free Tier)
+
+Create new Hugging Face Space.
+
+Upload backend/ folder (with app.py, requirements.txt, README.md).
+
+Set SDK = “Other”.
+
+Entrypoint:
+
+uvicorn app:app --host 0.0.0.0 --port 7860
+
+
+Deploy.
+
+6. Additional Requirements
+
+Include .gitignore (ignore node_modules, __pycache__, .env).
+
+Use MIT License (so app is open-source).
+
+Add code comments for beginners.
+
+Provide a sample .env.example file if needed.
+
+Everything must be 100% free (no OpenAI API, no paid SaaS).
+
+🎯 Deliverables
+
+Generate all necessary files and code.
+
+Provide a zip-ready GitHub repo structure.
+
+Include clear step-by-step deployment instructions.
+
+Ensure I can just push to GitHub and deploy frontend (Vercel) + backend (Hugging Face Spaces) with no errors.
